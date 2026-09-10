@@ -179,6 +179,37 @@ function readImage(src) {
         }));
 }
 
+/* ------------------------------------------------- streaming a blob out */
+
+// A blob: URL only resolves inside the page that created it, so the video page
+// cannot fetch one itself. It opens a port here and we send the bytes over in
+// chunks — base64, because extension messages carry JSON, not binary.
+const CHUNK = 512 * 1024;
+
+chrome.runtime.onConnect.addListener((port) => {
+    if (port.name !== 'gwr-video') return;
+
+    port.onMessage.addListener(async (msg) => {
+        if (msg?.type !== 'read') return;
+        try {
+            const res = await fetch(msg.src, { credentials: 'include' });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const blob = await res.blob();
+            const buffer = new Uint8Array(await blob.arrayBuffer());
+
+            for (let offset = 0; offset < buffer.length; offset += CHUNK) {
+                const slice = buffer.subarray(offset, offset + CHUNK);
+                let binary = '';
+                for (let i = 0; i < slice.length; i++) binary += String.fromCharCode(slice[i]);
+                port.postMessage({ type: 'chunk', data: btoa(binary) });
+            }
+            port.postMessage({ type: 'done', mime: blob.type || 'video/mp4' });
+        } catch (err) {
+            port.postMessage({ type: 'error', error: err.message });
+        }
+    });
+});
+
 /* ---------------------------------------------------------------- wiring */
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {

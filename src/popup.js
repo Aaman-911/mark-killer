@@ -4,6 +4,7 @@ const dropZone = document.getElementById('drop');
 const picker = document.getElementById('picker');
 const results = document.getElementById('results');
 const hoverSelect = document.getElementById('hover');
+const videoButton = document.getElementById('video');
 
 let enginePromise = null;
 const engine = () => (enginePromise ||= Engine.create());
@@ -93,6 +94,11 @@ dropZone.addEventListener('keydown', (e) => {
     dropZone.addEventListener(type, (e) => { e.preventDefault(); dropZone.classList.remove('over'); });
 });
 dropZone.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files));
+
+videoButton.addEventListener('click', async () => {
+    await chrome.runtime.sendMessage({ type: 'open-studio' });
+    window.close();
+});
 
 chrome.storage.sync.get({ hoverButton: 'gemini' }).then(({ hoverButton }) => {
     hoverSelect.value = hoverButton;

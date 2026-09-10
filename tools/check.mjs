@@ -35,6 +35,12 @@ for (const file of [...new Set(referenced)]) {
     check(`manifest reference exists: ${file}`, existsSync(join(ROOT, file)));
 }
 
+// Pages opened at runtime rather than named in the manifest.
+for (const file of ['src/studio.html', 'src/studio.css', 'src/studio.js',
+                    'vendor/mediabunny.mjs', 'vendor/mediabunny.LICENSE']) {
+    check(`runtime file exists: ${file}`, existsSync(join(ROOT, file)));
+}
+
 check('reference assets are present',
     existsSync(join(ROOT, 'assets/bg_48.png')) && existsSync(join(ROOT, 'assets/bg_96.png')));
 
@@ -72,9 +78,20 @@ for (const file of sources) {
     check(`no eval: ${name}`, !/\beval\s*\(|new\s+Function\s*\(/.test(text));
 }
 
-const popup = readFileSync(join(ROOT, 'src/popup.html'), 'utf8');
-check('popup loads no remote scripts or styles', !/(src|href)\s*=\s*["']https?:/i.test(popup.replace(/<a\b[^>]*>/gi, '')));
-check('popup has no inline script', !/<script(?![^>]*\bsrc=)[^>]*>[\s\S]*?<\/script>/i.test(popup));
+for (const name of ['src/popup.html', 'src/studio.html']) {
+    const html = readFileSync(join(ROOT, name), 'utf8');
+    check(`${name} loads no remote scripts or styles`,
+        !/(src|href)\s*=\s*["']https?:/i.test(html.replace(/<a\b[^>]*>/gi, '')));
+    check(`${name} has no inline script`,
+        !/<script(?![^>]*\bsrc=)[^>]*>[\s\S]*?<\/script>/i.test(html));
+    check(`${name} does not hide things with a display rule alone`,
+        !/hidden/.test(html) || /\[hidden\]\s*{[^}]*display:\s*none/.test(
+            readFileSync(join(ROOT, name.replace('.html', '.css')), 'utf8')),
+        'a stylesheet display rule would beat the [hidden] attribute');
+}
+
+check('the vendored library is the only third-party code',
+    readdirSync(join(ROOT, 'vendor')).filter((f) => f.endsWith('.mjs')).length === 1);
 
 console.log(failures === 0 ? '\nall static checks passed' : `\n${failures} check(s) FAILED`);
 process.exit(failures === 0 ? 0 : 1);

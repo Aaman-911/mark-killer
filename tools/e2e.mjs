@@ -190,6 +190,99 @@ const PROBE_ENGINE = `(async () => {
     };
 })()`;
 
+
+/* ------------------------------------------------------------- probe C  */
+
+// Builds a short video with the Veo sparkle blended into every frame, encodes
+// it with the shipped pipeline, cleans it, and measures how much of the mark
+// is left. H.264 is lossy, so this compares how strongly the sparkle template
+// still correlates with the picture rather than demanding exact pixels.
+const PROBE_VIDEO = `(async () => {
+    const url = (p) => chrome.runtime.getURL(p);
+    const [{ Engine }, mb, { scoreBox }, { getVeoWatermark }, { buildAlpha }, video] = await Promise.all([
+        import(url('src/engine/engine.js')),
+        import(url('vendor/mediabunny.mjs')),
+        import(url('src/engine/detect.js')),
+        import(url('src/engine/videoTune.js')),
+        import(url('src/engine/tuner.js')),
+        import(url('src/engine/videoEngine.js')),
+    ]);
+
+    if (!(await video.canEncode())) return { skipped: 'this browser cannot encode H.264' };
+
+    const sparkle = (await Engine.create()).bg96;
+    const width = 320, height = 240, frames = 12, frameRate = 12;
+    const box = getVeoWatermark(width, height);
+
+    // A moving picture, so the encoder has something real to chew on.
+    const canvas = new OffscreenCanvas(width, height);
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+    const target = new mb.BufferTarget();
+    const output = new mb.Output({ format: new mb.Mp4OutputFormat(), target });
+    const source = new mb.CanvasSource(canvas, { codec: 'avc', bitrate: mb.QUALITY_HIGH, keyFrameInterval: 1 });
+    output.addVideoTrack(source, { frameRate });
+    await output.start();
+
+    const alpha = buildAlpha(sparkle, box, box, 1);
+    for (let f = 0; f < frames; f++) {
+        const img = ctx.createImageData(width, height);
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const i = (y * width + x) * 4;
+                img.data[i] = 60 + ((x + f * 4) % 160);
+                img.data[i + 1] = 70 + ((y + f * 2) % 140);
+                img.data[i + 2] = 90;
+                img.data[i + 3] = 255;
+            }
+        }
+        for (let row = 0; row < box.height; row++) {
+            for (let col = 0; col < box.width; col++) {
+                const a = Math.min(alpha[row * box.width + col], 0.99);
+                const p = ((box.y + row) * width + (box.x + col)) * 4;
+                for (let c = 0; c < 3; c++) img.data[p + c] = Math.round(a * 255 + (1 - a) * img.data[p + c]);
+            }
+        }
+        ctx.putImageData(img, 0, 0);
+        await source.add(f / frameRate, 1 / frameRate);
+    }
+    source.close();
+    await output.finalize();
+
+    const marked = new Blob([target.buffer], { type: 'video/mp4' });
+
+    const before = await video.grabFrame(marked, 0.2);
+    const template = buildAlpha(sparkle, box, box, 1);
+    const scoreBefore = scoreBox(before.imageData, template, box);
+
+    let progressSeen = 0;
+    const cleaned = await video.cleanVideo(marked, sparkle, {
+        gain: 1, offsetX: 0, offsetY: 0, sizeScale: 1,
+        onProgress: () => { progressSeen++; },
+    });
+
+    const after = await video.grabFrame(cleaned.blob, 0.2);
+    const scoreAfter = scoreBox(after.imageData, template, box);
+
+    // Cancelling must actually stop the work.
+    const controller = new AbortController();
+    const cancelled = video.cleanVideo(marked, sparkle, {
+        gain: 1, signal: controller.signal, onProgress: () => controller.abort(),
+    }).then(() => 'finished anyway').catch((e) => e.name);
+
+    return {
+        markedBytes: marked.size,
+        cleanedBytes: cleaned.blob.size,
+        frames: cleaned.frames,
+        width: cleaned.width,
+        height: cleaned.height,
+        scoreBefore,
+        scoreAfter,
+        progressSeen,
+        cancelled: await cancelled,
+    };
+})()`;
+
 /* ----------------------------------------------------------------- main */
 
 const profile = mkdtempSync(join(tmpdir(), 'gwr-profile-'));
@@ -305,6 +398,32 @@ try {
             }
         }
         check('saved file has the original pixels back', worst <= 2, `worst channel error ${worst}/255`);
+    }
+
+    console.log('--- probe C: a real video through the whole pipeline');
+    const studioTarget = await poll(
+        `http://127.0.0.1:${PORT}/json/new?${encodeURIComponent(`chrome-extension://${EXTENSION_ID}/src/studio.html`)}`,
+        { method: 'PUT' });
+    const studio = connect(studioTarget.webSocketDebuggerUrl);
+    sockets.push(studio);
+    await studio.ready;
+    await studio.send('Runtime.enable');
+
+    const clip = await evaluate(studio, PROBE_VIDEO);
+    if (clip.skipped) {
+        console.log(`SKIP  video pipeline (${clip.skipped})`);
+    } else {
+        check('the test clip encoded', clip.markedBytes > 0, `${clip.markedBytes} bytes in`);
+        check('the sparkle survives encoding', clip.scoreBefore >= 0.35,
+            `score ${clip.scoreBefore.toFixed(3)} before cleaning`);
+        check('every frame came out again', clip.frames === 12, `${clip.frames} frames`);
+        check('the size is unchanged', clip.width === 320 && clip.height === 240,
+            `${clip.width}x${clip.height}`);
+        check('the output is a real file', clip.cleanedBytes > 0, `${clip.cleanedBytes} bytes out`);
+        check('progress was reported', clip.progressSeen > 0, `${clip.progressSeen} updates`);
+        check('the watermark is gone', clip.scoreAfter < 0.35,
+            `score ${clip.scoreBefore.toFixed(3)} -> ${clip.scoreAfter.toFixed(3)}`);
+        check('cancelling stops the export', clip.cancelled === 'AbortError', String(clip.cancelled));
     }
 } catch (err) {
     check('end-to-end run', false, err.message);

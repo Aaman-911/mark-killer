@@ -19,6 +19,7 @@ import { removeWatermark } from '../src/engine/blendModes.js';
 import { getWatermarkInfo, getCompactWatermarkInfo } from '../src/engine/geometry.js';
 import { scoreBox } from '../src/engine/detect.js';
 import { downloadFilename, bytesToBase64, base64ToBytes } from '../src/lib/naming.js';
+import { getVeoWatermark } from '../src/engine/videoTune.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DETECT_THRESHOLD = 0.35;
@@ -165,6 +166,19 @@ const white = { width: 900, height: 900, data: new Uint8ClampedArray(900 * 900 *
 check('flat white image is left alone',
     bestCandidate(white).score < DETECT_THRESHOLD,
     `best score ${bestCandidate(white).score.toFixed(3)}`);
+
+console.log('--- veo watermark geometry');
+for (const [w, h] of [[1280, 720], [720, 1280], [1920, 1080], [640, 480]]) {
+    const box = getVeoWatermark(w, h);
+    const short = Math.min(w, h);
+    check(`veo box for ${w}x${h}`,
+        box.size === Math.max(24, Math.round(short / 15))
+        && box.x + box.width + Math.round(short / 10) === w
+        && box.y + box.height + Math.round(short / 10) === h,
+        `${box.size}px at ${box.x},${box.y}`);
+    check(`veo box for ${w}x${h} stays in frame`,
+        box.x >= 0 && box.y >= 0 && box.x + box.width <= w && box.y + box.height <= h);
+}
 
 console.log('--- download naming');
 const naming = [

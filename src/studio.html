@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Gemini Watermark Remover — video</title>
+  <link rel="stylesheet" href="studio.css" />
+</head>
+<body>
+  <header>
+    <h1><span class="sparkle">&#10022;</span> Video watermark remover</h1>
+    <p class="sub">Decoded, cleaned and re-encoded on this machine. Nothing is uploaded.</p>
+  </header>
+
+  <main>
+    <section id="intake">
+      <label id="drop" for="picker" tabindex="0">
+        <span class="drop-title">Drop a video here</span>
+        <span class="drop-hint">or click to choose a file — MP4, WebM, MOV</span>
+        <input id="picker" type="file" accept="video/*" hidden />
+      </label>
+      <p id="intake-note" class="note" hidden></p>
+    </section>
+
+    <section id="workspace" hidden>
+      <div class="stage">
+        <div class="canvas-wrap">
+          <canvas id="preview"></canvas>
+          <canvas id="zoom" title="close-up of the watermark"></canvas>
+        </div>
+        <div class="stage-bar">
+          <label class="inline"><input type="checkbox" id="show-original" /> show original</label>
+          <label class="inline scrub">frame
+            <input type="range" id="time" min="0" max="100" value="10" />
+          </label>
+          <span id="meta" class="meta"></span>
+        </div>
+      </div>
+
+      <aside class="controls">
+        <div class="control-head">
+          <h2>Watermark fit</h2>
+          <button id="autofit" type="button" class="ghost">Auto-fit</button>
+        </div>
+
+        <label class="slider">Strength <output id="gain-out"></output>
+          <input type="range" id="gain" min="0.1" max="1" step="0.01" />
+        </label>
+        <label class="slider">Horizontal <output id="offsetX-out"></output>
+          <input type="range" id="offsetX" min="-120" max="120" step="1" />
+        </label>
+        <label class="slider">Vertical <output id="offsetY-out"></output>
+          <input type="range" id="offsetY" min="-120" max="120" step="1" />
+        </label>
+        <label class="slider">Size <output id="sizeScale-out"></output>
+          <input type="range" id="sizeScale" min="0.4" max="2" step="0.01" />
+        </label>
+
+        <div class="actions">
+          <button id="process" type="button" class="primary">Clean the video</button>
+          <button id="cancel" type="button" class="ghost" hidden>Cancel</button>
+        </div>
+
+        <div id="progress-wrap" hidden>
+          <div class="bar"><div id="bar-fill"></div></div>
+          <p id="progress-text" class="note"></p>
+        </div>
+
+        <div id="result" hidden>
+          <video id="result-video" controls playsinline></video>
+          <button id="save" type="button" class="primary">Save the cleaned video</button>
+          <p id="result-note" class="note"></p>
+        </div>
+
+        <p id="error" class="error" hidden></p>
+      </aside>
+    </section>
+  </main>
+
+  <script type="module" src="studio.js"></script>
+</body>
+</html>

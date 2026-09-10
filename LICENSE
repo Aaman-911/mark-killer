@@ -8,6 +8,12 @@ by Abhin Krishna (https://github.com/dearabhin/gemini-watermark-remover), which
 is MIT licensed, and in turn from GeminiWatermarkTool by allenk
 (https://github.com/allenk/GeminiWatermarkTool).
 
+The video pipeline follows GargantuaX/gemini-watermark-remover (MIT).
+
+`vendor/mediabunny.mjs` is an unmodified copy of mediabunny, which is licensed
+under the Mozilla Public License 2.0 — see `vendor/mediabunny.LICENSE`. That
+licence covers that file only.
+
 Copyright (c) 2025 Abhin Krishna
 
 Permission is hereby granted, free of charge, to any person obtaining a copy

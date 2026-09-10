@@ -13,6 +13,10 @@
 
 * { box-sizing: border-box; }
 
+/* A display rule below would otherwise beat the browser's own [hidden]. */
+[hidden] { display: none !important; }
+
+
 body {
   width: 340px;
   margin: 0;
@@ -42,6 +46,19 @@ h1 { margin: 0; font-size: 15px; letter-spacing: .2px; }
 .sparkle { font-size: 20px; color: var(--accent); }
 .drop-title { font-weight: 600; }
 .drop-hint { font-size: 11px; color: var(--muted); }
+
+button.wide {
+  width: 100%;
+  margin-top: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+button.wide:hover { border-color: var(--accent); }
 
 #results {
   list-style: none;

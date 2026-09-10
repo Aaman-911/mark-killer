@@ -1,7 +1,9 @@
 import { Engine } from './engine/engine.js';
 import { downloadFilename, bytesToBase64, base64ToBytes } from './lib/naming.js';
 
-const MENU_ID = 'gemini-clean-image';
+const MENU_IMAGE = 'gemini-clean-image';
+const MENU_VIDEO = 'gemini-clean-video';
+const STUDIO_PAGE = 'src/studio.html';
 const DEFAULT_SETTINGS = { hoverButton: 'gemini' };
 
 let enginePromise = null;
@@ -22,9 +24,14 @@ function getEngine() {
 function installMenu() {
     chrome.contextMenus.removeAll(() => {
         chrome.contextMenus.create({
-            id: MENU_ID,
+            id: MENU_IMAGE,
             title: 'Remove Gemini watermark',
             contexts: ['image'],
+        });
+        chrome.contextMenus.create({
+            id: MENU_VIDEO,
+            title: 'Remove Gemini watermark from video…',
+            contexts: ['video'],
         });
     });
 }
@@ -37,9 +44,21 @@ chrome.runtime.onInstalled.addListener(async () => {
 chrome.runtime.onStartup.addListener(installMenu);
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-    if (info.menuItemId !== MENU_ID || !info.srcUrl) return;
-    handleImage(info.srcUrl, tab?.id);
+    if (!info.srcUrl) return;
+    if (info.menuItemId === MENU_IMAGE) handleImage(info.srcUrl, tab?.id);
+    if (info.menuItemId === MENU_VIDEO) openStudio(info.srcUrl, tab?.id);
 });
+
+/* ------------------------------------------------------------- studio */
+
+// Video is cleaned on its own page, not here: an export runs for minutes and a
+// service worker is not allowed to live that long.
+function openStudio(srcUrl, tabId) {
+    const url = new URL(chrome.runtime.getURL(STUDIO_PAGE));
+    if (srcUrl) url.searchParams.set('src', srcUrl);
+    if (tabId !== undefined) url.searchParams.set('tab', String(tabId));
+    return chrome.tabs.create({ url: url.toString() });
+}
 
 /* --------------------------------------------------------------- loading */
 
@@ -120,6 +139,12 @@ async function handleImage(srcUrl, tabId) {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg?.type === 'clean-image') {
         handleImage(msg.src, sender.tab?.id).then(sendResponse);
+        return true;
+    }
+    if (msg?.type === 'open-studio') {
+        openStudio(msg.src, msg.tabId)
+            .then(() => sendResponse({ ok: true }))
+            .catch((err) => sendResponse({ ok: false, error: err.message }));
         return true;
     }
     if (msg?.type === 'download') {

@@ -11,6 +11,7 @@
     "test": "node tools/test.mjs",
     "e2e": "node tools/e2e.mjs",
     "verify": "node tools/check.mjs && node tools/test.mjs && node tools/e2e.mjs",
-    "preview": "node tools/preview-hover.mjs"
+    "preview": "node tools/preview-hover.mjs",
+    "preview:studio": "node tools/preview-studio.mjs"
   }
 }
