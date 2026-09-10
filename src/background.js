@@ -1,5 +1,6 @@
 import { Engine } from './engine/engine.js';
 import { downloadFilename, bytesToBase64, base64ToBytes } from './lib/naming.js';
+import { getBlob, dropBlob, writeJob, OUT_KEY } from './lib/jobstore.js';
 import { getVeoWatermark } from './engine/videoTune.js';
 import { buildAlpha } from './engine/tuner.js';
 import { scoreBox } from './engine/detect.js';
@@ -8,6 +9,7 @@ import { DETECT_THRESHOLD } from './engine/engine.js';
 const MENU_IMAGE = 'gemini-clean-image';
 const MENU_VIDEO = 'gemini-clean-video';
 const STUDIO_PAGE = 'src/studio.html';
+const OFFSCREEN_PAGE = 'src/offscreen.html';
 const DEFAULT_SETTINGS = { hoverButton: 'gemini' };
 
 let enginePromise = null;
@@ -50,14 +52,93 @@ chrome.runtime.onStartup.addListener(installMenu);
 chrome.contextMenus.onClicked.addListener((info, tab) => {
     if (!info.srcUrl) return;
     if (info.menuItemId === MENU_IMAGE) handleImage(info.srcUrl, tab?.id);
-    if (info.menuItemId === MENU_VIDEO) openStudio(info.srcUrl, tab?.id);
+    if (info.menuItemId === MENU_VIDEO) startVideo(info.srcUrl, tab?.id);
 });
+
+/* ---------------------------------------------------------- exporting */
+
+// The export runs in an offscreen document so that closing the popup panel,
+// which the browser does the moment it loses focus, cannot kill it.
+let offscreenReady = null;
+
+async function ensureOffscreen() {
+    const existing = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] });
+    if (existing.length) return;
+
+    if (!offscreenReady) {
+        offscreenReady = chrome.offscreen.createDocument({
+            url: OFFSCREEN_PAGE,
+            reasons: ['BLOBS'],
+            justification: 'decode and re-encode video frames while the popup is closed',
+        }).finally(() => { offscreenReady = null; });
+    }
+    await offscreenReady;
+}
+
+async function startExport(msg) {
+    await ensureOffscreen();
+    await chrome.runtime.sendMessage({ type: 'offscreen-export', name: msg.name, settings: msg.settings });
+    return { ok: true };
+}
+
+// The offscreen document cannot reach chrome.storage or chrome.downloads, so
+// the service worker owns both: it records what the panel should show, and it
+// saves the finished file.
+async function publish(job) {
+    await writeJob(job);
+    chrome.runtime.sendMessage({ type: 'video-job', job }).catch(() => {});
+}
+
+async function finishExport(msg) {
+    try {
+        const blob = await getBlob(OUT_KEY);
+        if (!blob) throw new Error('The cleaned video went missing before it could be saved.');
+
+        const filename = downloadFilename(`https://local/${msg.name}`).replace(/\.png$/, '.mp4');
+        await chrome.downloads.download({ url: await blobToDataUrl(blob), filename, saveAs: false });
+        await dropBlob(OUT_KEY).catch(() => {});
+
+        await publish({
+            stage: 'done',
+            progress: 1,
+            name: msg.name,
+            frames: msg.frames,
+            bytes: msg.bytes,
+            audio: msg.audio,
+            seconds: msg.seconds,
+            filename,
+        });
+    } catch (err) {
+        await publish({ stage: 'failed', name: msg.name, error: err.message });
+    } finally {
+        chrome.offscreen.closeDocument().catch(() => {});
+    }
+}
+
+async function stopExport() {
+    const existing = await chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] });
+    if (!existing.length) return { ok: true, stopping: false };
+    return chrome.runtime.sendMessage({ type: 'offscreen-stop' });
+}
 
 /* ------------------------------------------------------------- studio */
 
 // Video gets its own window rather than the toolbar popup, which the browser
 // destroys the moment it loses focus — an export runs for minutes. A popup
 // window keeps it out of the way of whatever tab you were on.
+// The video controls live in the toolbar panel. Chrome can open that panel for
+// us on recent versions; where it cannot, fall back to the standalone window.
+async function startVideo(srcUrl, tabId) {
+    await chrome.storage.local.set({ pendingVideo: { src: srcUrl, tabId } });
+    try {
+        if (chrome.action.openPopup) {
+            await chrome.action.openPopup();
+            return;
+        }
+    } catch { /* not available on this version, or no focused window */ }
+    return openStudio(srcUrl, tabId);
+}
+
 function openStudio(srcUrl, tabId) {
     const url = new URL(chrome.runtime.getURL(STUDIO_PAGE));
     if (srcUrl) url.searchParams.set('src', srcUrl);
@@ -197,6 +278,35 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg?.type === 'detect-region') {
         detectRegion(msg.png, msg.box)
             .then((r) => sendResponse({ ok: true, ...r }))
+            .catch((err) => sendResponse({ ok: false, error: err.message }));
+        return true;
+    }
+    if (msg?.type === 'export-progress') {
+        publish({ stage: 'working', progress: msg.progress, frames: msg.frames, name: msg.name });
+        return false;
+    }
+    if (msg?.type === 'export-done') {
+        finishExport(msg);
+        return false;
+    }
+    if (msg?.type === 'export-stopped' || msg?.type === 'export-failed') {
+        publish({
+            stage: msg.type === 'export-stopped' ? 'stopped' : 'failed',
+            name: msg.name,
+            error: msg.error || null,
+        });
+        chrome.offscreen.closeDocument().catch(() => {});
+        return false;
+    }
+    if (msg?.type === 'start-export') {
+        startExport(msg)
+            .then(sendResponse)
+            .catch((err) => sendResponse({ ok: false, error: err.message }));
+        return true;
+    }
+    if (msg?.type === 'stop-export') {
+        stopExport()
+            .then(sendResponse)
             .catch((err) => sendResponse({ ok: false, error: err.message }));
         return true;
     }

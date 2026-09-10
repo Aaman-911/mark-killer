@@ -182,13 +182,13 @@ for (const [w, h] of [[1280, 720], [720, 1280], [1920, 1080], [640, 480]]) {
 
 console.log('--- download naming');
 const naming = [
-    ['https://x.test/pics/sunset-01.jpg', 'gemini-watermark-remover/sunset-01-clean.png'],
-    ['https://x.test/pics/sunset.png?w=800&token=abc', 'gemini-watermark-remover/sunset-clean.png'],
-    ['https://x.test/pics/a b%20c!.jpeg', 'gemini-watermark-remover/a-b-c-clean.png'],
-    ['blob:https://x.test/9f2c', 'gemini-watermark-remover/gemini-1700000000000-clean.png'],
-    ['data:image/png;base64,AAAA', 'gemini-watermark-remover/gemini-1700000000000-clean.png'],
-    ['https://x.test/', 'gemini-watermark-remover/gemini-1700000000000-clean.png'],
-    [`https://x.test/${'y'.repeat(120)}.png`, `gemini-watermark-remover/${'y'.repeat(60)}-clean.png`],
+    ['https://x.test/pics/sunset-01.jpg', 'mark-killer/sunset-01-clean.png'],
+    ['https://x.test/pics/sunset.png?w=800&token=abc', 'mark-killer/sunset-clean.png'],
+    ['https://x.test/pics/a b%20c!.jpeg', 'mark-killer/a-b-c-clean.png'],
+    ['blob:https://x.test/9f2c', 'mark-killer/gemini-1700000000000-clean.png'],
+    ['data:image/png;base64,AAAA', 'mark-killer/gemini-1700000000000-clean.png'],
+    ['https://x.test/', 'mark-killer/gemini-1700000000000-clean.png'],
+    [`https://x.test/${'y'.repeat(120)}.png`, `mark-killer/${'y'.repeat(60)}-clean.png`],
 ];
 for (const [input, expected] of naming) {
     const actual = downloadFilename(input, 1700000000000);

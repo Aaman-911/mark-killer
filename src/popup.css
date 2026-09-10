@@ -1,4 +1,19 @@
 body { width: 328px; padding: 16px 16px 14px; }
+body[data-view="video"] { width: 420px; }
+
+/* the video panel ---------------------------------------------------- */
+
+.video-head { display: flex; align-items: center; gap: 9px; margin-bottom: 13px; }
+.back {
+  padding: 3px 9px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--chalk);
+  font-size: 13px;
+  line-height: 1.2;
+}
+.back:hover { border-color: var(--mark); }
 
 header { margin-bottom: 13px; }
 .by { margin-left: 6px; color: var(--rule); letter-spacing: .06em; }

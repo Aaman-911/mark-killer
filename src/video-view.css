@@ -1,0 +1,69 @@
+/* The video controls, sized to sit inside the toolbar panel. */
+
+.vv-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 30px 16px;
+  border: 1px dashed var(--rule);
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color .14s ease, background-color .14s ease;
+}
+.vv-drop:hover, .vv-drop:focus-visible, .vv-drop.over { border-color: var(--mark); outline: none; }
+.vv-drop.over { background-color: var(--mark-dim); }
+.vv-drop-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; margin-bottom: 4px;
+  border-radius: 50%; background: var(--mark-dim); color: var(--mark); font-size: 11px;
+}
+.vv-drop-title { font-size: 14px; font-weight: 650; }
+.vv-note { margin: 10px 0 0; text-align: center; }
+
+.vv-frame { position: relative; border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+.vv-preview { display: block; width: 100%; height: auto; }
+
+.vv-closeup {
+  position: absolute; right: 8px; bottom: 8px; margin: 0;
+  padding: 4px 4px 2px;
+  border: 1px solid var(--rule); border-radius: 8px;
+  background: rgba(8, 10, 14, .84);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+}
+.vv-zoom {
+  display: block; width: 84px; height: 84px;
+  border-radius: 5px; background: var(--ink-sunken); image-rendering: pixelated;
+}
+.vv-closeup figcaption { margin-top: 3px; text-align: center; font-size: 8.5px; }
+
+.vv-stagebar { display: flex; align-items: center; gap: 10px; margin-top: 9px; }
+.vv-toggle { display: inline-flex; align-items: center; gap: 5px; color: var(--mute); white-space: nowrap; }
+.vv-toggle input { accent-color: var(--mark); }
+.vv-time { flex: 1; min-width: 60px; }
+.vv-meta { white-space: nowrap; }
+
+.vv-fit { margin: 11px 0 12px; }
+
+.vv-slider {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 3px 8px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--mute);
+}
+.vv-slider output { color: var(--chalk); font-size: 11px; }
+.vv-slider input { grid-column: 1 / -1; width: 100%; }
+
+input[type="range"] { accent-color: var(--mark); }
+
+.vv-go, .vv-stop { width: 100%; margin-top: 4px; }
+.vv-stop { margin-top: 8px; }
+
+.vv-bar { height: 6px; margin-top: 14px; border-radius: 999px; background: var(--ink-sunken); overflow: hidden; }
+.vv-fill { height: 100%; width: 0; background: var(--mark); transition: width .18s ease; }
+.vv-progress-text { margin: 7px 0 0; }
+
+.vv-error { margin: 10px 0 0; color: var(--bad); }

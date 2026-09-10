@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 import { decodePng } from './png.mjs';
 import { findBrowser, extensionId, INSTALL_HINT, LAUNCH_FLAGS } from './browser.mjs';
 import { watermarkedPng } from './fixture.mjs';
+import { BUILD_CLIP } from './clip.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 9333 + (process.pid % 200);
@@ -283,6 +284,41 @@ const PROBE_VIDEO = `(async () => {
     };
 })()`;
 
+
+/* ------------------------------------------------------------- probe D  */
+
+// The export must survive the popup closing, so it runs in an offscreen
+// document. This drives the real path: put a clip where the popup puts it,
+// send the real message, and wait for the job state the panel reads back.
+const PROBE_START = `(async (clipBase64) => {
+    const { putBlob, JOB_KEY } = await import(chrome.runtime.getURL('src/lib/jobstore.js'));
+
+    const binary = atob(clipBase64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    await putBlob(JOB_KEY, new Blob([bytes], { type: 'video/mp4' }));
+
+    await chrome.storage.local.remove('videoJob');
+    const started = await chrome.runtime.sendMessage({
+        type: 'start-export',
+        name: 'probe-clip.mp4',
+        settings: { gain: 1, offsetX: 0, offsetY: 0, sizeScale: 1 },
+    });
+
+    return started;
+})`;
+
+const PROBE_WAIT = `(async () => {
+    const deadline = Date.now() + 60000;
+    let job = null;
+    while (Date.now() < deadline) {
+        ({ videoJob: job } = await chrome.storage.local.get('videoJob'));
+        if (job && job.stage !== 'working') break;
+        await new Promise((r) => setTimeout(r, 300));
+    }
+    return job;
+})`;
+
 /* ----------------------------------------------------------------- main */
 
 const profile = mkdtempSync(join(tmpdir(), 'gwr-profile-'));
@@ -371,7 +407,7 @@ try {
     const fileDeadline = Date.now() + 15000;
     const expected = history[0]?.filename;
     while (Date.now() < fileDeadline && !saved) {
-        for (const dir of [join(downloads, 'gemini-watermark-remover'), expected ? dirname(expected) : null]) {
+        for (const dir of [join(downloads, 'mark-killer'), expected ? dirname(expected) : null]) {
             if (!dir) continue;
             try {
                 const done = readdirSync(dir).filter((f) => f.endsWith('.png') && statSync(join(dir, f)).size > 0);
@@ -444,6 +480,28 @@ try {
             `score ${clip.scoreBefore.toFixed(3)} -> ${clip.scoreAfter.toFixed(3)}`);
         check('cancelling stops the export', clip.cancelled === 'AbortError', String(clip.cancelled));
     }
+
+    console.log('--- probe D: the export runs outside the popup');
+    const clipBase64 = await evaluate(studio, `(${BUILD_CLIP})(320, 240, 12, 12)`);
+    check('a test clip was built', typeof clipBase64 === 'string' && clipBase64.length > 0,
+        typeof clipBase64 === 'string' ? `${Math.round(clipBase64.length * 0.75 / 1024)} KB` : String(clipBase64));
+
+    const started = await evaluate(studio, `(${PROBE_START})(${JSON.stringify(clipBase64)})`);
+    check('the export was accepted', started?.ok === true, JSON.stringify(started));
+
+    const countContexts = `chrome.runtime.getContexts({ contextTypes: ['OFFSCREEN_DOCUMENT'] }).then(c => c.length)`;
+    check('an offscreen document is doing the work',
+        (await evaluateWhenReady(sw, countContexts)) > 0, 'offscreen document present');
+
+    const job = await evaluate(studio, `(${PROBE_WAIT})()`);
+    check('the export finished', job?.stage === 'done',
+        job ? `${job.stage}${job.error ? ': ' + job.error : ''}` : 'no job state');
+    if (job?.stage === 'done') {
+        check('every frame came through', job.frames === 12, `${job.frames} frames`);
+        check('it saved itself without the panel', Boolean(job.filename), job.filename);
+    }
+    check('the offscreen document is closed afterwards',
+        (await evaluateWhenReady(sw, countContexts)) === 0, 'nothing left running');
 } catch (err) {
     check('end-to-end run', false, err.message);
     if (chromeLog.length) {

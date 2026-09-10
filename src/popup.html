@@ -4,37 +4,48 @@
   <meta charset="utf-8" />
   <title>Mark Killer</title>
   <link rel="stylesheet" href="ui.css" />
+  <link rel="stylesheet" href="video-view.css" />
   <link rel="stylesheet" href="popup.css" />
 </head>
-<body>
-  <header>
-    <p class="eyebrow">Mark Killer <span class="by">by Aman Dixit</span></p>
-    <h1>Take the sparkle off</h1>
-    <p class="how tiny muted">Right-click an image or video anywhere and pick
-      <b>Remove Gemini watermark</b>.</p>
-  </header>
+<body data-view="home">
+  <section id="home">
+    <header>
+      <p class="eyebrow">Mark Killer <span class="by">by Aman Dixit</span></p>
+      <h1>Take the sparkle off</h1>
+      <p class="how tiny muted">Right-click an image or video anywhere and pick
+        <b>Remove Gemini watermark</b>.</p>
+    </header>
 
-  <label id="drop" for="picker" tabindex="0">
-    <span class="strip-mark">&#10022;</span>
-    <span class="strip-text">Drop images<span class="tiny muted"> &mdash; or click to choose</span></span>
-    <input id="picker" type="file" accept="image/*" multiple hidden />
-  </label>
+    <label id="drop" for="picker" tabindex="0">
+      <span class="strip-mark">&#10022;</span>
+      <span class="strip-text">Drop images<span class="tiny muted"> &mdash; or click to choose</span></span>
+      <input id="picker" type="file" accept="image/*" multiple hidden />
+    </label>
 
-  <ul id="results" hidden></ul>
+    <ul id="results" hidden></ul>
 
-  <button id="video" type="button" class="video-card checker">
-    <span class="video-mark">&#9654;</span>
-    <span class="video-title">Clean a video</span>
-    <span class="video-hint tiny muted">Veo clips, frame by frame, with the audio kept</span>
-  </button>
+    <button id="video" type="button" class="video-card checker">
+      <span class="video-mark">&#9654;</span>
+      <span class="video-title">Clean a video</span>
+      <span class="video-hint tiny muted">Veo clips, frame by frame, with the audio kept</span>
+    </button>
 
-  <section class="settings">
-    <span class="eyebrow">Hover button</span>
-    <select id="hover">
-      <option value="gemini">Gemini &amp; AI Studio</option>
-      <option value="all">Every site</option>
-      <option value="off">Off</option>
-    </select>
+    <section class="settings">
+      <span class="eyebrow">Hover button</span>
+      <select id="hover">
+        <option value="gemini">Gemini &amp; AI Studio</option>
+        <option value="all">Every site</option>
+        <option value="off">Off</option>
+      </select>
+    </section>
+  </section>
+
+  <section id="video-panel" hidden>
+    <header class="video-head">
+      <button id="back" type="button" class="back">&#8592;</button>
+      <p class="eyebrow">Mark Killer &middot; video</p>
+    </header>
+    <div id="video-root"></div>
   </section>
 
   <script type="module" src="popup.js"></script>

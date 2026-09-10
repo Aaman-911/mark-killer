@@ -1,7 +1,7 @@
 // Pure helpers used by the service worker. Kept free of chrome.* and DOM APIs
 // so they can be unit tested outside the browser.
 
-export const DOWNLOAD_FOLDER = 'gemini-watermark-remover';
+export const DOWNLOAD_FOLDER = 'mark-killer';
 
 /**
  * Where a cleaned image should be saved, given where it came from.

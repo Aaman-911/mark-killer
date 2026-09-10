@@ -37,6 +37,8 @@ for (const file of [...new Set(referenced)]) {
 
 // Pages opened at runtime rather than named in the manifest.
 for (const file of ['src/studio.html', 'src/studio.css', 'src/studio.js', 'src/ui.css',
+                    'src/offscreen.html', 'src/offscreen.js',
+                    'src/video-view.js', 'src/video-view.css', 'src/lib/jobstore.js',
                     'vendor/mediabunny.mjs', 'vendor/mediabunny.LICENSE']) {
     check(`runtime file exists: ${file}`, existsSync(join(ROOT, file)));
 }
@@ -46,7 +48,7 @@ check('reference assets are present',
 
 const declared = new Set(manifest.permissions);
 check('asks for no permissions it does not use',
-    [...declared].every((p) => ['contextMenus', 'downloads', 'storage'].includes(p)),
+    [...declared].every((p) => ['contextMenus', 'downloads', 'storage', 'offscreen'].includes(p)),
     [...declared].join(', '));
 
 /* ------------------------------------------------------------- sources */
@@ -78,7 +80,7 @@ for (const file of sources) {
     check(`no eval: ${name}`, !/\beval\s*\(|new\s+Function\s*\(/.test(text));
 }
 
-for (const name of ['src/popup.html', 'src/studio.html']) {
+for (const name of ['src/popup.html', 'src/studio.html', 'src/offscreen.html']) {
     const html = readFileSync(join(ROOT, name), 'utf8');
     check(`${name} loads no remote scripts or styles`,
         !/(src|href)\s*=\s*["']https?:/i.test(html.replace(/<a\b[^>]*>/gi, '')));

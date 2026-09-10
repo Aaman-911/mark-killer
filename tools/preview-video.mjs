@@ -1,7 +1,7 @@
-// Screenshots the video page with a clip actually loaded, so its layout and the
-// watermark preview can be judged without installing the extension.
+// Screenshots the video controls with a clip actually loaded, in the toolbar
+// panel where they now live.
 //
-//   node tools/preview-studio.mjs [out.png]
+//   node tools/preview-video.mjs [out.png]
 
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -13,7 +13,7 @@ import { findBrowser, extensionId, INSTALL_HINT, LAUNCH_FLAGS } from './browser.
 import { BUILD_CLIP } from './clip.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
-const OUT = resolve(process.argv[2] || join(ROOT, 'studio-preview.png'));
+const OUT = resolve(process.argv[2] || join(ROOT, 'video-preview.png'));
 const PORT = 9900 + (process.pid % 90);
 
 const CHROME = findBrowser();
@@ -48,8 +48,8 @@ function talk(target) {
 
 const profile = mkdtempSync(join(tmpdir(), 'gwr-studio-'));
 const scratch = mkdtempSync(join(tmpdir(), 'gwr-clip-'));
-// The real window the extension opens is 560 wide; preview it at that size.
-const chrome = spawn(CHROME, [...LAUNCH_FLAGS(ROOT, profile, PORT), '--window-size=560,820', 'about:blank'],
+// The panel is 420 wide once it switches to video.
+const chrome = spawn(CHROME, [...LAUNCH_FLAGS(ROOT, profile, PORT), '--window-size=460,900', 'about:blank'],
     { stdio: ['ignore', 'pipe', 'pipe'] });
 
 let page = null;
@@ -60,7 +60,7 @@ try {
     while (Date.now() < deadline && !target) {
         try {
             target = await (await fetch(
-                `http://127.0.0.1:${PORT}/json/new?${encodeURIComponent(`chrome-extension://${EXTENSION_ID}/src/studio.html`)}`,
+                `http://127.0.0.1:${PORT}/json/new?${encodeURIComponent(`chrome-extension://${EXTENSION_ID}/src/popup.html`)}`,
                 { method: 'PUT' })).json();
         } catch { await sleep(400); }
     }
@@ -84,9 +84,14 @@ try {
     const clipPath = join(scratch, 'veo-test-clip.mp4');
     writeFileSync(clipPath, Buffer.from(built.result.result.value, 'base64'));
 
+    step('opening the video panel');
+    await page.send('Runtime.evaluate', { expression: `document.getElementById('video').click()` });
+    await sleep(2500);
+
     step('handing the clip to the file picker');
     const doc = await page.send('DOM.getDocument', { depth: -1 });
-    const picker = await page.send('DOM.querySelector', { nodeId: doc.result.root.nodeId, selector: '#picker' });
+    const picker = await page.send('DOM.querySelector', { nodeId: doc.result.root.nodeId, selector: '.vv-picker' });
+    if (!picker.result?.nodeId) throw new Error('the video panel never opened');
     await page.send('DOM.setFileInputFiles', { nodeId: picker.result.nodeId, files: [clipPath] });
 
     step('waiting for the preview');
@@ -94,7 +99,8 @@ try {
     const until = Date.now() + 25000;
     while (Date.now() < until && !ready) {
         const probe = await page.send('Runtime.evaluate', {
-            expression: `!document.getElementById('workspace').hidden && document.getElementById('preview').width > 0`,
+            expression: `(() => { const w = document.querySelector('.vv-work');
+                          return Boolean(w) && !w.hidden && document.querySelector('.vv-preview').width > 0; })()`,
             returnByValue: true,
         });
         ready = probe.result?.result?.value === true;
