@@ -8,6 +8,9 @@ import { cleanVideo, grabFrame, isVideoSupported, canEncode, VIDEO_DEFAULTS } fr
 import { downloadFilename } from './lib/naming.js';
 
 const els = {
+    title: document.getElementById('title'),
+    topline: document.getElementById('topline'),
+    fitNote: document.getElementById('fit-note'),
     intake: document.getElementById('intake'),
     intakeNote: document.getElementById('intake-note'),
     drop: document.getElementById('drop'),
@@ -85,7 +88,7 @@ function drawPreview() {
     ctx.putImageData(working, 0, 0);
 
     // Outline where the removal is confined to.
-    ctx.strokeStyle = 'rgba(129, 140, 248, .9)';
+    ctx.strokeStyle = 'rgba(242, 180, 65, .95)';
     ctx.lineWidth = Math.max(1, Math.round(Math.min(width, height) / 400));
     ctx.strokeRect(wm.x + .5, wm.y + .5, wm.width, wm.height);
 
@@ -100,7 +103,7 @@ function drawPreview() {
     zoomCtx.drawImage(els.preview, roi.x, roi.y, roi.width, roi.height,
         (side - roi.width) / 2, (side - roi.height) / 2, roi.width, roi.height);
 
-    els.meta.textContent = `${width}×${height} · ${formatSeconds(frame.duration)} · mark ${wm.size}px at ${wm.x},${wm.y}`;
+    els.meta.textContent = `${width}×${height}  ${formatSeconds(frame.duration)}  mark ${wm.size}px @ ${wm.x},${wm.y}`;
 }
 
 function syncSliders() {
@@ -131,7 +134,11 @@ function runAutoFit() {
     };
     syncSliders();
     drawPreview();
-    els.autofit.textContent = `Auto-fit (${fit.score.toFixed(2)})`;
+
+    const confidence = Math.round(Math.max(0, Math.min(1, fit.score)) * 100);
+    els.fitNote.textContent = confidence >= 60
+        ? `Found the sparkle, ${confidence}% match. Adjust below if the corner still looks off.`
+        : `Only a ${confidence}% match — this clip may not carry the mark. Check the corner before exporting.`;
 }
 
 /* ---------------------------------------------------------------- load */
@@ -143,6 +150,8 @@ async function load(file, label) {
 
     els.intake.hidden = true;
     els.workspace.hidden = false;
+    els.title.textContent = state.sourceName;
+    els.topline.textContent = 'Nothing is uploaded.';
 
     try {
         await showFrameAt(0.5);
@@ -168,7 +177,7 @@ async function process() {
     els.result.hidden = true;
     els.progressWrap.hidden = false;
     els.barFill.style.width = '0%';
-    els.progressText.textContent = 'Starting…';
+    els.progressText.textContent = 'Decoding…';
 
     const started = Date.now();
     try {
@@ -177,20 +186,21 @@ async function process() {
             signal: state.controller.signal,
             onProgress: ({ progress, frames }) => {
                 els.barFill.style.width = `${Math.round(progress * 100)}%`;
-                els.progressText.textContent = `${Math.round(progress * 100)}% · ${frames} frames`;
+                els.progressText.textContent = `${Math.round(progress * 100)}%  ${frames} frames`;
             },
         });
 
         state.output = output;
         els.resultVideo.src = URL.createObjectURL(output.blob);
-        els.resultNote.textContent = `${output.frames} frames · ${formatSize(output.blob.size)} · `
-            + `audio ${output.audio ? 'copied across' : 'not present'} · `
-            + `${Math.round((Date.now() - started) / 1000)}s`;
+        els.resultNote.textContent = `${output.frames} frames, ${formatSize(output.blob.size)}, `
+            + `${output.audio ? 'audio copied across' : 'no audio track'}, `
+            + `${Math.round((Date.now() - started) / 1000)}s.`;
         els.result.hidden = false;
         els.progressText.textContent = 'Done.';
+        els.topline.textContent = 'Cleaned. Save it below.';
     } catch (err) {
         if (err?.name === 'AbortError') {
-            els.progressText.textContent = 'Cancelled.';
+            els.progressText.textContent = 'Stopped. Nothing was saved.';
         } else {
             fail(err.message);
             els.progressWrap.hidden = true;
@@ -210,7 +220,7 @@ async function save() {
         filename: name,
         saveAs: false,
     });
-    els.resultNote.textContent += ' · saved';
+    els.resultNote.textContent += ' Saved to your downloads.';
 }
 
 /* ------------------------------------------- reading a page's blob URL */

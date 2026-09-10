@@ -1,5 +1,9 @@
 import { Engine } from './engine/engine.js';
 import { downloadFilename, bytesToBase64, base64ToBytes } from './lib/naming.js';
+import { getVeoWatermark } from './engine/videoTune.js';
+import { buildAlpha } from './engine/tuner.js';
+import { scoreBox } from './engine/detect.js';
+import { DETECT_THRESHOLD } from './engine/engine.js';
 
 const MENU_IMAGE = 'gemini-clean-image';
 const MENU_VIDEO = 'gemini-clean-video';
@@ -51,13 +55,19 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
 /* ------------------------------------------------------------- studio */
 
-// Video is cleaned on its own page, not here: an export runs for minutes and a
-// service worker is not allowed to live that long.
+// Video gets its own window rather than the toolbar popup, which the browser
+// destroys the moment it loses focus — an export runs for minutes. A popup
+// window keeps it out of the way of whatever tab you were on.
 function openStudio(srcUrl, tabId) {
     const url = new URL(chrome.runtime.getURL(STUDIO_PAGE));
     if (srcUrl) url.searchParams.set('src', srcUrl);
     if (tabId !== undefined) url.searchParams.set('tab', String(tabId));
-    return chrome.tabs.create({ url: url.toString() });
+    return chrome.windows.create({
+        url: url.toString(),
+        type: 'popup',
+        width: 1120,
+        height: 820,
+    });
 }
 
 /* --------------------------------------------------------------- loading */
@@ -134,6 +144,35 @@ async function handleImage(srcUrl, tabId) {
     }
 }
 
+/* ------------------------------------------------------------ detecting */
+
+// The hover button only appears once we know the mark is really there, so the
+// page asks these two questions before showing anything.
+
+async function detectImage(srcUrl, tabId) {
+    const engine = await getEngine();
+    const source = await loadImage(srcUrl, tabId);
+    return engine.inspect(source);
+}
+
+// A page cannot read the pixels of a cross-origin image, but it can crop the
+// current frame of a video it is already playing. It sends just that crop.
+async function detectRegion(pngDataUrl, box) {
+    const engine = await getEngine();
+    const bitmap = await createImageBitmap(await (await fetch(pngDataUrl)).blob());
+
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(bitmap, 0, 0);
+    bitmap.close();
+
+    const frame = { x: 0, y: 0, width: box.width, height: box.height, size: box.size };
+    const template = buildAlpha(engine.bg96, frame, frame, 1);
+    const score = scoreBox(ctx.getImageData(0, 0, canvas.width, canvas.height), template, frame);
+
+    return { detected: score >= DETECT_THRESHOLD, score };
+}
+
 /* -------------------------------------------------------------- messages */
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -141,8 +180,24 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         handleImage(msg.src, sender.tab?.id).then(sendResponse);
         return true;
     }
+    if (msg?.type === 'detect-image') {
+        detectImage(msg.src, sender.tab?.id)
+            .then((r) => sendResponse({ ok: true, ...r }))
+            .catch((err) => sendResponse({ ok: false, error: err.message }));
+        return true;
+    }
+    if (msg?.type === 'video-region') {
+        sendResponse({ ok: true, box: getVeoWatermark(msg.width, msg.height) });
+        return false;
+    }
+    if (msg?.type === 'detect-region') {
+        detectRegion(msg.png, msg.box)
+            .then((r) => sendResponse({ ok: true, ...r }))
+            .catch((err) => sendResponse({ ok: false, error: err.message }));
+        return true;
+    }
     if (msg?.type === 'open-studio') {
-        openStudio(msg.src, msg.tabId)
+        openStudio(msg.src, msg.tabId ?? sender.tab?.id)
             .then(() => sendResponse({ ok: true }))
             .catch((err) => sendResponse({ ok: false, error: err.message }));
         return true;

@@ -32,19 +32,19 @@ function buildUi() {
                 border-radius: 999px;
                 font: 600 14px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
                 letter-spacing: .2px; color: #fff; cursor: pointer; pointer-events: auto;
-                background: rgba(18,18,24,.72);
+                background: rgba(11,13,18,.78);
                 -webkit-backdrop-filter: blur(12px) saturate(140%);
                 backdrop-filter: blur(12px) saturate(140%);
                 box-shadow: 0 6px 22px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.10);
                 transition: background .15s ease, transform .15s ease;
             }
-            .btn:hover { background: rgba(30,30,40,.86); transform: translateY(-1px); }
+            .btn:hover { background: rgba(20,24,36,.9); transform: translateY(-1px); }
             .btn:active { transform: translateY(0); }
             .btn[data-busy="true"] { opacity: .75; cursor: progress; transform: none; }
             .mark {
                 display: inline-flex; align-items: center; justify-content: center;
                 width: 26px; height: 26px; border-radius: 50%;
-                background: rgba(255,255,255,.15); font-size: 14px; line-height: 1;
+                background: rgba(242,180,65,.22); color: #f2b441; font-size: 14px; line-height: 1;
             }
             .btn[data-busy="true"] .mark { animation: pulse 1s ease-in-out infinite; }
             @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
@@ -55,11 +55,11 @@ function buildUi() {
             .toast {
                 max-width: 320px; padding: 10px 14px; border-radius: 10px;
                 font: 500 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-                color: #fff; background: #1f2937; box-shadow: 0 4px 16px rgba(0,0,0,.3);
+                color: #eef1f7; background: #141824; box-shadow: 0 6px 20px rgba(0,0,0,.4);
             }
-            .toast[data-level="done"]  { background: #166534; }
-            .toast[data-level="empty"] { background: #334155; }
-            .toast[data-level="error"] { background: #991b1b; }
+            .toast[data-level="done"]  { background: #14532d; }
+            .toast[data-level="empty"] { background: #3f2d08; }
+            .toast[data-level="error"] { background: #4c1210; }
         </style>
         <button class="btn" type="button"><span class="mark">&#10022;</span><span class="label">Clean</span></button>
         <div class="toasts"></div>
@@ -92,23 +92,88 @@ function toast(level, message) {
 
 /* --------------------------------------------------------- hover button */
 
+// The button only appears once we know the mark is actually there, so hovering
+// ordinary pictures does nothing. Images are checked by the background worker,
+// which can fetch them without the cross-origin restrictions a page has.
+// Videos are checked from the frame on screen; when the page is not allowed to
+// read those pixels the button still appears, because the video page can open
+// the file and check properly.
+
+const MIN_MEDIA_SIZE = 220;
+const HOVER_DELAY = 320;
+const verdicts = new Map();
+
+function mediaSize(el) {
+    return el instanceof HTMLVideoElement
+        ? { width: el.videoWidth, height: el.videoHeight }
+        : { width: el.naturalWidth, height: el.naturalHeight };
+}
+
+function sourceOf(el) {
+    return el.currentSrc || el.src || '';
+}
+
 function hoverEnabled() {
     if (settings.hoverButton === 'off') return false;
     if (settings.hoverButton === 'all') return true;
     return GEMINI_HOSTS.some((h) => location.hostname === h || location.hostname.endsWith(`.${h}`));
 }
 
-function bigEnough(img) {
-    return img.naturalWidth >= MIN_IMAGE_SIZE && img.naturalHeight >= MIN_IMAGE_SIZE;
+function worthChecking(el) {
+    const { width, height } = mediaSize(el);
+    if (width < MIN_MEDIA_SIZE || height < MIN_MEDIA_SIZE) return false;
+    if (el instanceof HTMLVideoElement && el.readyState < 2) return false;
+    return Boolean(sourceOf(el));
 }
 
-function placeButton(img) {
+async function askAboutImage(src) {
+    const reply = await chrome.runtime.sendMessage({ type: 'detect-image', src });
+    return reply?.ok && reply.detected ? 'found' : 'absent';
+}
+
+async function askAboutVideo(el) {
+    const { width, height } = mediaSize(el);
+    const region = await chrome.runtime.sendMessage({ type: 'video-region', width, height });
+    if (!region?.ok) return 'unknown';
+
+    const { box } = region;
+    const canvas = document.createElement('canvas');
+    canvas.width = box.width;
+    canvas.height = box.height;
+    canvas.getContext('2d').drawImage(el, box.x, box.y, box.width, box.height, 0, 0, box.width, box.height);
+
+    let png;
+    try {
+        png = canvas.toDataURL('image/png');
+    } catch {
+        return 'unknown'; // the page may not read this video's pixels
+    }
+
+    const reply = await chrome.runtime.sendMessage({ type: 'detect-region', png, box });
+    if (!reply?.ok) return 'unknown';
+    return reply.detected ? 'found' : 'absent';
+}
+
+async function verdictFor(el) {
+    const src = sourceOf(el);
+    if (verdicts.has(src)) return verdicts.get(src);
+
+    const pending = (el instanceof HTMLVideoElement ? askAboutVideo(el) : askAboutImage(src))
+        .catch(() => 'unknown');
+    verdicts.set(src, pending);
+
+    const verdict = await pending;
+    verdicts.set(src, verdict);
+    if (verdicts.size > 200) verdicts.delete(verdicts.keys().next().value);
+    return verdict;
+}
+
+function placeButton(el) {
     const { button } = buildUi();
-    const r = img.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
     if (r.width < 80 || r.height < 40) { hideButton(); return; }
 
     button.style.display = 'inline-flex';
-    // Centred near the top of the image, clamped so it stays on screen.
     const width = button.offsetWidth;
     const left = r.left + (r.width - width) / 2;
     button.style.left = `${Math.min(Math.max(8, left), window.innerWidth - width - 8)}px`;
@@ -129,22 +194,44 @@ function scheduleHide() {
     ui.hideTimer = setTimeout(hideButton, 350);
 }
 
+let checkTimer = null;
+
 function onPointerOver(event) {
     if (!hoverEnabled()) return;
-    const img = event.target;
-    if (!(img instanceof HTMLImageElement) || !bigEnough(img)) return;
+    const el = event.target;
+    if (!(el instanceof HTMLImageElement) && !(el instanceof HTMLVideoElement)) return;
+    if (!worthChecking(el)) return;
+
     clearTimeout(ui?.hideTimer);
-    hovered = img;
-    placeButton(img);
+    clearTimeout(checkTimer);
+    checkTimer = setTimeout(async () => {
+        const verdict = await verdictFor(el);
+        const isVideo = el instanceof HTMLVideoElement;
+        // An image we could not read is left alone; an unreadable video still
+        // gets a button, because the video page can check it properly.
+        if (verdict === 'absent' || (verdict === 'unknown' && !isVideo)) return;
+
+        hovered = el;
+        buildUi().label.textContent = isVideo ? 'Clean video' : 'Clean';
+        placeButton(el);
+    }, HOVER_DELAY);
 }
 
 function onPointerOut(event) {
     if (event.target === hovered) scheduleHide();
+    clearTimeout(checkTimer);
 }
 
 async function onCleanClick() {
     if (!hovered || ui.button.dataset.busy === 'true') return;
-    const src = hovered.currentSrc || hovered.src;
+    const src = sourceOf(hovered);
+
+    if (hovered instanceof HTMLVideoElement) {
+        await chrome.runtime.sendMessage({ type: 'open-studio', src });
+        hideButton();
+        return;
+    }
+
     ui.button.dataset.busy = 'true';
     ui.label.textContent = 'Working…';
     try {

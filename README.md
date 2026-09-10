@@ -15,9 +15,11 @@ images that are already on a page, without downloading and re-uploading them.
 ## What it does
 
 * **Right-click → "Remove Gemini watermark"** on any image, on any site.
-* **Hover button** on large images — a small pill that fades in over the top of
-  the image. On `gemini.google.com` and `aistudio.google.com` by default; you
-  can switch it to every site, or off.
+* **Hover button that only appears when there is something to remove.** Hover a
+  large image or video and the extension checks it first — the pill shows up
+  only if the sparkle is actually there, so ordinary pictures are left alone.
+  On `gemini.google.com` and `aistudio.google.com` by default; you can switch it
+  to every site, or off.
 * **Drag and drop** local files into the toolbar popup, several at a time.
 * **Checks before it edits.** If the sparkle is not actually there, the image is
   left alone and you are told so, rather than having clean pixels mangled.
@@ -68,9 +70,10 @@ correlation of 0.35 it concludes there is no watermark and does nothing.
 ## Video
 
 Right-click a video → **Remove Gemini watermark from video…**, or open the
-toolbar popup and choose *Clean a video instead*. Either way the work happens on
-its own page, not in the popup: an export runs for minutes and a popup is torn
-down the moment it loses focus.
+toolbar popup and choose *Clean a video…*. Either way the work happens in its
+own window rather than the toolbar popup, which the browser destroys the moment
+it loses focus — an export runs for minutes. A separate window also keeps it out
+of the way of the tab you were on.
 
 The video mark is bigger than the one on stills (roughly short side ÷ 15, at a
 tenth of the short side from the corner) and re-encoding leaves its strength
@@ -99,6 +102,7 @@ manifest.json          MV3 manifest
 src/
   background.js        service worker: context menu, fetching, cleaning, saving
   content.js           in-page hover button, toasts, blob: URL reader
+  ui.css               the palette and type both pages share
   popup.html/.css/.js  toolbar popup: drag and drop, settings
   studio.html/.css/.js the video page: preview, fit controls, export
   engine/
@@ -154,8 +158,9 @@ npm run verify
 To look at the in-page hover button without installing anything:
 
 ```bash
-npm run preview          # the hover button  -> hover-preview.png
-npm run preview:studio   # the video page    -> studio-preview.png
+npm run preview          # the hover button   -> hover-preview.png
+npm run preview:popup    # the toolbar popup  -> popup-preview.png
+npm run preview:studio   # the video window   -> studio-preview.png
 ```
 
 **The e2e suite and the preview need an unbranded browser.** Google Chrome now refuses
@@ -177,11 +182,20 @@ npx @puppeteer/browsers install chrome@stable
 
 ## Distribution
 
-Loading it unpacked is fine. Publishing it is a different question: a store
-listing whose stated purpose is removing another company's watermark is likely
-to draw review attention on the Chrome Web Store, and Firefox's AMO is more
-permissive but not a guarantee. That is a decision to make deliberately, not by
-accident.
+Loading it unpacked is fine, and free.
+
+Publishing is a different question. The Chrome Web Store charges a **one-time
+$5 developer registration fee** — free for the people who install it, not free
+for you — and a listing whose stated purpose is removing another company's
+watermark is likely to draw review attention there, since the reviewer is
+Google. Edge Add-ons costs nothing to register and applies similar policies with
+a different reviewer. Firefox AMO is more permissive still, but nothing here is
+tested on Firefox.
+
+The part with real exposure is not the arithmetic: `assets/bg_48.png` and
+`bg_96.png` are reproductions of Google's own mark. Two things genuinely count
+in the other direction — this removes only the visible sparkle, leaving SynthID
+untouched, and it never sends anything anywhere. Decide deliberately.
 
 ## Credits and licence
 

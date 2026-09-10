@@ -152,7 +152,8 @@ try {
     await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 4, y: 4, buttons: 0 });
     await sleep(150);
     await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: point.x, y: point.y, buttons: 0 });
-    await sleep(900);
+    // The button waits for the background worker to confirm the mark is there.
+    await sleep(2500);
 
     step('capturing');
     const shot = await send('Page.captureScreenshot', { format: 'png' });

@@ -36,7 +36,7 @@ for (const file of [...new Set(referenced)]) {
 }
 
 // Pages opened at runtime rather than named in the manifest.
-for (const file of ['src/studio.html', 'src/studio.css', 'src/studio.js',
+for (const file of ['src/studio.html', 'src/studio.css', 'src/studio.js', 'src/ui.css',
                     'vendor/mediabunny.mjs', 'vendor/mediabunny.LICENSE']) {
     check(`runtime file exists: ${file}`, existsSync(join(ROOT, file)));
 }
@@ -84,9 +84,11 @@ for (const name of ['src/popup.html', 'src/studio.html']) {
         !/(src|href)\s*=\s*["']https?:/i.test(html.replace(/<a\b[^>]*>/gi, '')));
     check(`${name} has no inline script`,
         !/<script(?![^>]*\bsrc=)[^>]*>[\s\S]*?<\/script>/i.test(html));
+    const styles = [...html.matchAll(/<link[^>]+href="([^"]+\.css)"/g)]
+        .map((m) => readFileSync(join(ROOT, 'src', m[1]), 'utf8'))
+        .join('\n');
     check(`${name} does not hide things with a display rule alone`,
-        !/hidden/.test(html) || /\[hidden\]\s*{[^}]*display:\s*none/.test(
-            readFileSync(join(ROOT, name.replace('.html', '.css')), 'utf8')),
+        !/hidden/.test(html) || /\[hidden\]\s*{[^}]*display:\s*none/.test(styles),
         'a stylesheet display rule would beat the [hidden] attribute');
 }
 

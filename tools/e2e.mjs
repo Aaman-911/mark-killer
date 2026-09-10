@@ -400,6 +400,17 @@ try {
         check('saved file has the original pixels back', worst <= 2, `worst channel error ${worst}/255`);
     }
 
+    const verdict = await evaluate(page,
+        `chrome.runtime.sendMessage({ type: 'detect-image', src: ${JSON.stringify(fixture.dataUrl)} })`);
+    check('the hover check finds a watermark', verdict?.ok === true && verdict.detected === true,
+        verdict?.score !== undefined ? `score ${Number(verdict.score).toFixed(3)}, ${verdict.variant}` : JSON.stringify(verdict));
+
+    const region = await evaluate(page,
+        `chrome.runtime.sendMessage({ type: 'video-region', width: 1280, height: 720 })`);
+    check('the hover check knows where a video mark sits',
+        region?.ok === true && region.box?.size === 48 && region.box.x === 1160 && region.box.y === 600,
+        JSON.stringify(region?.box));
+
     console.log('--- probe C: a real video through the whole pipeline');
     const studioTarget = await poll(
         `http://127.0.0.1:${PORT}/json/new?${encodeURIComponent(`chrome-extension://${EXTENSION_ID}/src/studio.html`)}`,

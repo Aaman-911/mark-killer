@@ -56,6 +56,27 @@ export class Engine {
             box.width >= 8);
     }
 
+    /** Score an image without touching it. Used by the hover button. */
+    async inspect(blob) {
+        const bitmap = await createImageBitmap(blob);
+        const { imageData } = bitmapToImageData(bitmap);
+        const { width, height } = bitmap;
+        bitmap.close();
+
+        let best = null;
+        for (const { name, box } of this.candidates(width, height)) {
+            const score = scoreBox(imageData, this.template(box.size), box);
+            if (!best || score > best.score) best = { variant: name, score, box };
+        }
+        return {
+            detected: Boolean(best) && best.score >= DETECT_THRESHOLD,
+            score: best ? best.score : 0,
+            variant: best ? best.variant : null,
+            width,
+            height,
+        };
+    }
+
     /**
      * Clean one image.
      * @param {Blob} blob source image
