@@ -411,6 +411,14 @@ try {
         region?.ok === true && region.box?.size === 48 && region.box.x === 1160 && region.box.y === 600,
         JSON.stringify(region?.box));
 
+    // The video tool must open in its own popup window, never a tab.
+    await evaluate(page, `chrome.runtime.sendMessage({ type: 'open-studio' })`);
+    await sleep(800);
+    const windows = await evaluateWhenReady(sw,
+        `chrome.windows.getAll({}).then(ws => ws.map(w => w.type))`);
+    check('the video tool opens in its own popup window',
+        windows.includes('popup'), windows.join(', '));
+
     console.log('--- probe C: a real video through the whole pipeline');
     const studioTarget = await poll(
         `http://127.0.0.1:${PORT}/json/new?${encodeURIComponent(`chrome-extension://${EXTENSION_ID}/src/studio.html`)}`,
