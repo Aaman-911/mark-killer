@@ -62,11 +62,15 @@ function openStudio(srcUrl, tabId) {
     const url = new URL(chrome.runtime.getURL(STUDIO_PAGE));
     if (srcUrl) url.searchParams.set('src', srcUrl);
     if (tabId !== undefined) url.searchParams.set('tab', String(tabId));
+    // A panel-sized popup window, not a tab. It cannot live in the toolbar
+    // popup itself: the browser destroys that the moment it loses focus, and
+    // an export runs for minutes.
     return chrome.windows.create({
         url: url.toString(),
         type: 'popup',
-        width: 1120,
+        width: 560,
         height: 820,
+        top: 60,
     });
 }
 

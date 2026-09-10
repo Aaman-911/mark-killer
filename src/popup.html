@@ -2,28 +2,31 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Gemini Watermark Remover</title>
+  <title>Mark Killer</title>
   <link rel="stylesheet" href="ui.css" />
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
   <header>
-    <p class="eyebrow">Gemini &#10022; sparkle</p>
-    <h1>Take the mark off</h1>
+    <p class="eyebrow">Mark Killer <span class="by">by Aman Dixit</span></p>
+    <h1>Take the sparkle off</h1>
     <p class="how tiny muted">Right-click an image or video anywhere and pick
-      <b>Remove Gemini watermark</b>. Or start here.</p>
+      <b>Remove Gemini watermark</b>.</p>
   </header>
 
-  <label id="drop" class="checker" for="picker" tabindex="0">
-    <span class="drop-mark">&#10022;</span>
-    <span class="drop-title">Drop images</span>
-    <span class="drop-hint tiny muted">or click to choose files</span>
+  <label id="drop" for="picker" tabindex="0">
+    <span class="strip-mark">&#10022;</span>
+    <span class="strip-text">Drop images<span class="tiny muted"> &mdash; or click to choose</span></span>
     <input id="picker" type="file" accept="image/*" multiple hidden />
   </label>
 
-  <button id="video" type="button" class="btn-quiet wide">Clean a video&hellip;</button>
-
   <ul id="results" hidden></ul>
+
+  <button id="video" type="button" class="video-card checker">
+    <span class="video-mark">&#9654;</span>
+    <span class="video-title">Clean a video</span>
+    <span class="video-hint tiny muted">Veo clips, frame by frame, with the audio kept</span>
+  </button>
 
   <section class="settings">
     <span class="eyebrow">Hover button</span>
@@ -33,11 +36,6 @@
       <option value="off">Off</option>
     </select>
   </section>
-
-  <footer>
-    <span class="tiny muted">Runs here. Nothing is uploaded.</span>
-    <a class="tiny" href="https://github.com/dearabhin/gemini-watermark-remover" target="_blank" rel="noreferrer">Source</a>
-  </footer>
 
   <script type="module" src="popup.js"></script>
 </body>

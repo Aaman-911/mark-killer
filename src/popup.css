@@ -1,29 +1,60 @@
 body { width: 328px; padding: 16px 16px 14px; }
 
-header { margin-bottom: 14px; }
+header { margin-bottom: 13px; }
+.by { margin-left: 6px; color: var(--rule); letter-spacing: .06em; }
 h1 { margin-top: 6px; font-size: 17px; }
-.how { margin: 6px 0 0; }
+.how { margin: 5px 0 0; }
 .how b { color: var(--chalk); font-weight: 600; }
 
-/* intake ------------------------------------------------------------- */
+/* images: a slim strip — most image work happens on the right-click menu */
 
 #drop {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 3px;
-  padding: 26px 14px;
+  gap: 9px;
+  padding: 11px 13px;
   border: 1px dashed var(--rule);
-  border-radius: 12px;
+  border-radius: var(--radius);
   cursor: pointer;
   transition: border-color .14s ease, background-color .14s ease;
 }
 #drop:hover, #drop:focus-visible, #drop.over { border-color: var(--mark); outline: none; }
 #drop.over { background-color: var(--mark-dim); }
-.drop-mark { font-size: 17px; color: var(--mark); }
-.drop-title { font-weight: 600; font-size: 14px; }
+.strip-mark { color: var(--mark); font-size: 13px; }
+.strip-text { font-size: 12.5px; font-weight: 600; }
+.strip-text span { font-weight: 400; }
 
-.wide { width: 100%; margin-top: 8px; }
+/* video: the big one */
+
+.video-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 100%;
+  margin-top: 10px;
+  padding: 26px 16px 24px;
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  color: var(--chalk);
+  text-align: center;
+  transition: border-color .14s ease;
+}
+.video-card:hover { border-color: var(--mark); }
+.video-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin-bottom: 5px;
+  border-radius: 50%;
+  background: var(--mark-dim);
+  color: var(--mark);
+  font-size: 12px;
+}
+.video-title { font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
+.video-hint { max-width: 230px; line-height: 1.4; }
 
 /* results ------------------------------------------------------------ */
 
@@ -31,9 +62,9 @@ h1 { margin-top: 6px; font-size: 17px; }
   display: flex;
   flex-direction: column;
   gap: 1px;
-  margin: 14px 0 0;
+  margin: 10px 0 0;
   padding: 0;
-  max-height: 176px;
+  max-height: 150px;
   overflow-y: auto;
   list-style: none;
   border: 1px solid var(--rule);
@@ -63,8 +94,8 @@ h1 { margin-top: 6px; font-size: 17px; }
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-top: 16px;
-  padding-top: 13px;
+  margin-top: 14px;
+  padding-top: 12px;
   border-top: 1px solid var(--rule);
 }
 select {
@@ -76,13 +107,3 @@ select {
   font: 400 12px/1 var(--sans);
 }
 select:hover { border-color: var(--mute); }
-
-footer {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 11px;
-}
-footer a { color: var(--mark); text-decoration: none; white-space: nowrap; }
-footer a:hover { text-decoration: underline; }

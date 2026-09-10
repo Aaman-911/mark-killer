@@ -1,4 +1,6 @@
-# Gemini Watermark Remover — browser extension
+# Mark Killer
+
+*by Aman Dixit*
 
 Right-click any image or video in your browser and remove the visible Gemini ✦
 sparkle watermark. The cleaned file lands in your downloads folder. Nothing is

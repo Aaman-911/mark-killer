@@ -48,7 +48,8 @@ function talk(target) {
 
 const profile = mkdtempSync(join(tmpdir(), 'gwr-studio-'));
 const scratch = mkdtempSync(join(tmpdir(), 'gwr-clip-'));
-const chrome = spawn(CHROME, [...LAUNCH_FLAGS(ROOT, profile, PORT), 'about:blank'],
+// The real window the extension opens is 560 wide; preview it at that size.
+const chrome = spawn(CHROME, [...LAUNCH_FLAGS(ROOT, profile, PORT), '--window-size=560,820', 'about:blank'],
     { stdio: ['ignore', 'pipe', 'pipe'] });
 
 let page = null;
