@@ -1,0 +1,15 @@
+{
+  "name": "gemini-watermark-remover-extension",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Chrome extension that removes the visible Gemini sparkle watermark from images, locally.",
+  "license": "MIT",
+  "scripts": {
+    "icons": "node tools/make-icons.mjs",
+    "check": "node tools/check.mjs",
+    "test": "node tools/test.mjs",
+    "e2e": "node tools/e2e.mjs",
+    "verify": "node tools/check.mjs && node tools/test.mjs && node tools/e2e.mjs"
+  }
+}

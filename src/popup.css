@@ -1,0 +1,100 @@
+:root {
+  color-scheme: dark;
+  --bg: #0f172a;
+  --panel: #1e293b;
+  --line: #334155;
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --accent: #818cf8;
+  --good: #4ade80;
+  --warn: #fbbf24;
+  --bad: #f87171;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  width: 340px;
+  margin: 0;
+  padding: 14px;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+}
+
+h1 { margin: 0; font-size: 15px; letter-spacing: .2px; }
+.sub { margin: 4px 0 12px; font-size: 11.5px; color: var(--muted); }
+.sub b { color: var(--text); font-weight: 600; }
+
+#drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 20px 12px;
+  border: 1.5px dashed var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+#drop:hover, #drop:focus-visible, #drop.over { border-color: var(--accent); background: #232f47; outline: none; }
+.sparkle { font-size: 20px; color: var(--accent); }
+.drop-title { font-weight: 600; }
+.drop-hint { font-size: 11px; color: var(--muted); }
+
+#results {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  max-height: 190px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+#results li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: var(--panel);
+  font-size: 12px;
+}
+#results .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#results .state { flex: none; font-weight: 600; }
+#results .state[data-level="done"] { color: var(--good); }
+#results .state[data-level="empty"] { color: var(--warn); }
+#results .state[data-level="error"] { color: var(--bad); }
+#results .state[data-level="busy"] { color: var(--muted); }
+
+.settings {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 12px;
+}
+select {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 4px 6px;
+  font: inherit;
+}
+
+footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 10.5px;
+  color: var(--muted);
+}
+footer a { color: var(--accent); text-decoration: none; white-space: nowrap; }
+footer a:hover { text-decoration: underline; }

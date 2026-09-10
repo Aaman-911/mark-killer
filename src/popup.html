@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Gemini Watermark Remover</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header>
+    <h1>Gemini Watermark Remover</h1>
+    <p class="sub">Right-click any image on a page &rarr; <b>Remove Gemini watermark</b>. Or drop files below.</p>
+  </header>
+
+  <label id="drop" for="picker" tabindex="0">
+    <span class="sparkle">&#10022;</span>
+    <span class="drop-title">Drop images here</span>
+    <span class="drop-hint">or click to choose files</span>
+    <input id="picker" type="file" accept="image/*" multiple hidden />
+  </label>
+
+  <ul id="results" hidden></ul>
+
+  <section class="settings">
+    <label for="hover">Hover button on images</label>
+    <select id="hover">
+      <option value="gemini">Gemini &amp; AI Studio only</option>
+      <option value="all">Every site</option>
+      <option value="off">Off</option>
+    </select>
+  </section>
+
+  <footer>
+    <span>Runs on this machine. Nothing is uploaded.</span>
+    <a href="https://github.com/dearabhin/gemini-watermark-remover" target="_blank" rel="noreferrer">Source</a>
+  </footer>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
