@@ -15,8 +15,9 @@ images that are already on a page, without downloading and re-uploading them.
 ## What it does
 
 * **Right-click → "Remove Gemini watermark"** on any image, on any site.
-* **Hover button** on large images. On `gemini.google.com` and
-  `aistudio.google.com` by default; you can switch it to every site, or off.
+* **Hover button** on large images — a small pill that fades in over the top of
+  the image. On `gemini.google.com` and `aistudio.google.com` by default; you
+  can switch it to every site, or off.
 * **Drag and drop** local files into the toolbar popup, several at a time.
 * **Checks before it edits.** If the sparkle is not actually there, the image is
   left alone and you are told so, rather than having clean pixels mangled.
@@ -115,7 +116,13 @@ npm run verify
   engine there, then sends the service worker a real job and decodes the file it
   saves to disk.
 
-**The e2e suite needs an unbranded browser.** Google Chrome now refuses
+To look at the in-page hover button without installing anything:
+
+```bash
+npm run preview        # writes hover-preview.png
+```
+
+**The e2e suite and the preview need an unbranded browser.** Google Chrome now refuses
 `--load-extension` ("`--disable-extensions-except` is not allowed in Google
 Chrome, ignoring"), so the suite looks for Chrome for Testing or Chromium in the
 Puppeteer and Playwright caches and skips with an explanation if it finds

@@ -11,57 +11,25 @@
 //      verified by decoding the file that lands on disk
 
 import { spawn } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { mkdtempSync, rmSync, readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { mkdtempSync, rmSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { decodePng, encodePng } from './png.mjs';
-import { calculateAlphaMap } from '../src/engine/alphaMap.js';
-import { getWatermarkInfo } from '../src/engine/geometry.js';
+import { decodePng } from './png.mjs';
+import { findBrowser, extensionId, INSTALL_HINT, LAUNCH_FLAGS } from './browser.mjs';
+import { watermarkedPng } from './fixture.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 9333 + (process.pid % 200);
 
-// Branded Google Chrome refuses --load-extension ("--disable-extensions-except
-// is not allowed in Google Chrome, ignoring"), so this needs an unbranded
-// build: Chrome for Testing or Chromium. Puppeteer and Playwright both keep
-// one in their cache, which is where we look.
-function findBrowser() {
-    const candidates = [process.env.CHROME_PATH].filter(Boolean);
-
-    for (const [dir, app] of [
-        [join(homedir(), '.cache/puppeteer/chrome'), 'Google Chrome for Testing'],
-        [join(homedir(), 'Library/Caches/ms-playwright'), 'Chromium'],
-    ]) {
-        if (!existsSync(dir)) continue;
-        for (const build of readdirSync(dir).sort().reverse()) {
-            for (const arch of ['chrome-mac-arm64', 'chrome-mac-x64', 'chrome-linux64', 'chrome-mac', 'chrome-linux']) {
-                candidates.push(join(dir, build, arch, `${app}.app/Contents/MacOS/${app}`));
-                candidates.push(join(dir, build, arch, app.toLowerCase().replace(/ /g, '-')));
-            }
-        }
-    }
-
-    return candidates.find((p) => p && existsSync(p)) || null;
-}
-
 const CHROME = findBrowser();
 if (!CHROME) {
-    console.log('SKIP  no unbranded Chrome build found.');
-    console.log('      Branded Google Chrome ignores --load-extension, so this suite needs');
-    console.log('      Chrome for Testing or Chromium. Install one with:');
-    console.log('        npx @puppeteer/browsers install chrome@stable');
-    console.log('      then re-run, or point CHROME_PATH at an existing build.');
+    console.log(`SKIP  ${INSTALL_HINT[0]}`);
+    for (const line of INSTALL_HINT.slice(1)) console.log(`      ${line}`);
     process.exit(0);
 }
-
-// Chrome derives an unpacked extension's id from its absolute path.
-const EXTENSION_ID = [...createHash('sha256').update(ROOT).digest().subarray(0, 16)]
-    .flatMap((b) => [b >> 4, b & 15])
-    .map((n) => String.fromCharCode(97 + n))
-    .join('');
+const EXTENSION_ID = await extensionId(ROOT);
 
 let failures = 0;
 function check(name, pass, detail) {
@@ -131,44 +99,17 @@ async function evaluate(cdp, expression) {
     return result.result.value;
 }
 
-/* ------------------------------------------------- fixture built in node */
-
-function pattern(width, height) {
-    const data = new Uint8ClampedArray(width * height * 4);
-    for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-            const i = (y * width + x) * 4;
-            data[i] = Math.round(128 + 110 * Math.sin(x / 40));
-            data[i + 1] = Math.round(128 + 110 * Math.cos(y / 55));
-            data[i + 2] = Math.round(128 + 90 * Math.sin((x + y) / 70));
-            data[i + 3] = 255;
+// A service worker can be attachable a moment before its chrome.* bindings
+// exist, which shows up as "chrome is not defined". Give it a few tries.
+async function evaluateWhenReady(cdp, expression, tries = 8) {
+    for (let attempt = 1; ; attempt++) {
+        try {
+            return await evaluate(cdp, expression);
+        } catch (err) {
+            if (attempt >= tries || !/chrome is not defined/.test(err.message)) throw err;
+            await sleep(250);
         }
     }
-    return { width, height, data };
-}
-
-// An 800x600 picture with the real 48px sparkle blended in, exactly the way
-// Gemini does it. No resampling is involved at 48px, so Node and Chrome agree
-// on the template byte for byte.
-function buildFixture() {
-    const width = 800, height = 600;
-    const original = pattern(width, height);
-    const box = getWatermarkInfo(width, height);
-    const alpha = calculateAlphaMap(decodePng(readFileSync(join(ROOT, 'assets/bg_48.png'))));
-
-    const marked = new Uint8ClampedArray(original.data);
-    for (let row = 0; row < box.height; row++) {
-        for (let col = 0; col < box.width; col++) {
-            const a = Math.min(alpha[row * box.width + col], 0.99);
-            const p = ((box.y + row) * width + (box.x + col)) * 4;
-            for (let c = 0; c < 3; c++) {
-                marked[p + c] = Math.round(a * 255 + (1 - a) * original.data[p + c]);
-            }
-        }
-    }
-
-    const png = encodePng(width, height, Buffer.from(marked.buffer));
-    return { width, height, box, original, dataUrl: `data:image/png;base64,${png.toString('base64')}` };
 }
 
 /* ------------------------------------------------------------- probe A  */
@@ -254,18 +195,8 @@ const PROBE_ENGINE = `(async () => {
 const profile = mkdtempSync(join(tmpdir(), 'gwr-profile-'));
 const downloads = mkdtempSync(join(tmpdir(), 'gwr-downloads-'));
 
-const chrome = spawn(CHROME, [
-    '--headless=new',
-    '--enable-unsafe-extension-debugging',
-    '--disable-gpu',
-    '--no-first-run',
-    '--no-default-browser-check',
-    `--user-data-dir=${profile}`,
-    `--remote-debugging-port=${PORT}`,
-    `--load-extension=${ROOT}`,
-    `--disable-extensions-except=${ROOT}`,
-    'about:blank',
-], { stdio: ['ignore', 'pipe', 'pipe'] });
+const chrome = spawn(CHROME, [...LAUNCH_FLAGS(ROOT, profile, PORT), 'about:blank'],
+    { stdio: ['ignore', 'pipe', 'pipe'] });
 
 const chromeLog = [];
 chrome.stderr.on('data', (d) => chromeLog.push(String(d)));
@@ -295,7 +226,7 @@ try {
     sockets.push(sw);
     await sw.ready;
     await sw.send('Runtime.enable');
-    const listeners = await evaluate(sw, `({
+    const listeners = await evaluateWhenReady(sw, `({
         contextMenu: chrome.contextMenus.onClicked.hasListeners(),
         message: chrome.runtime.onMessage.hasListeners(),
     })`);
@@ -327,7 +258,7 @@ try {
     }
 
     console.log('--- probe B: message to the service worker, then the saved file');
-    const fixture = buildFixture();
+    const fixture = watermarkedPng(800, 600);
     const reply = await evaluate(page,
         `chrome.runtime.sendMessage({ type: 'clean-image', src: ${JSON.stringify(fixture.dataUrl)} })`);
 

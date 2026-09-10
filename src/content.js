@@ -27,14 +27,27 @@ function buildUi() {
         <style>
             :host { all: initial; }
             .btn {
-                position: fixed; display: none; align-items: center; gap: 6px;
-                padding: 6px 10px; border: 0; border-radius: 8px;
-                font: 600 12px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-                color: #fff; background: #1e1b4b; cursor: pointer;
-                box-shadow: 0 2px 10px rgba(0,0,0,.35); pointer-events: auto;
+                position: fixed; display: none; align-items: center; gap: 9px;
+                padding: 5px 15px 5px 5px; border: 1px solid rgba(255,255,255,.16);
+                border-radius: 999px;
+                font: 600 14px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+                letter-spacing: .2px; color: #fff; cursor: pointer; pointer-events: auto;
+                background: rgba(18,18,24,.72);
+                -webkit-backdrop-filter: blur(12px) saturate(140%);
+                backdrop-filter: blur(12px) saturate(140%);
+                box-shadow: 0 6px 22px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.10);
+                transition: background .15s ease, transform .15s ease;
             }
-            .btn:hover { background: #312e81; }
-            .btn[data-busy="true"] { opacity: .7; cursor: progress; }
+            .btn:hover { background: rgba(30,30,40,.86); transform: translateY(-1px); }
+            .btn:active { transform: translateY(0); }
+            .btn[data-busy="true"] { opacity: .75; cursor: progress; transform: none; }
+            .mark {
+                display: inline-flex; align-items: center; justify-content: center;
+                width: 26px; height: 26px; border-radius: 50%;
+                background: rgba(255,255,255,.15); font-size: 14px; line-height: 1;
+            }
+            .btn[data-busy="true"] .mark { animation: pulse 1s ease-in-out infinite; }
+            @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
             .toasts {
                 position: fixed; right: 16px; bottom: 16px;
                 display: flex; flex-direction: column; gap: 8px; align-items: flex-end;
@@ -48,7 +61,7 @@ function buildUi() {
             .toast[data-level="empty"] { background: #334155; }
             .toast[data-level="error"] { background: #991b1b; }
         </style>
-        <button class="btn" type="button">✦ Clean</button>
+        <button class="btn" type="button"><span class="mark">&#10022;</span><span class="label">Clean</span></button>
         <div class="toasts"></div>
     `;
 
@@ -57,6 +70,7 @@ function buildUi() {
     ui = {
         host,
         button: root.querySelector('.btn'),
+        label: root.querySelector('.label'),
         toasts: root.querySelector('.toasts'),
     };
 
@@ -92,16 +106,20 @@ function placeButton(img) {
     const { button } = buildUi();
     const r = img.getBoundingClientRect();
     if (r.width < 80 || r.height < 40) { hideButton(); return; }
+
     button.style.display = 'inline-flex';
-    button.style.top = `${Math.max(8, r.top + 8)}px`;
-    button.style.left = `${Math.max(8, r.right - button.offsetWidth - 8)}px`;
+    // Centred near the top of the image, clamped so it stays on screen.
+    const width = button.offsetWidth;
+    const left = r.left + (r.width - width) / 2;
+    button.style.left = `${Math.min(Math.max(8, left), window.innerWidth - width - 8)}px`;
+    button.style.top = `${Math.min(Math.max(8, r.top + 12), window.innerHeight - button.offsetHeight - 8)}px`;
 }
 
 function hideButton() {
     if (!ui) return;
     ui.button.style.display = 'none';
     ui.button.dataset.busy = 'false';
-    ui.button.textContent = '✦ Clean';
+    ui.label.textContent = 'Clean';
     hovered = null;
 }
 
@@ -128,7 +146,7 @@ async function onCleanClick() {
     if (!hovered || ui.button.dataset.busy === 'true') return;
     const src = hovered.currentSrc || hovered.src;
     ui.button.dataset.busy = 'true';
-    ui.button.textContent = '✦ Working…';
+    ui.label.textContent = 'Working…';
     try {
         await chrome.runtime.sendMessage({ type: 'clean-image', src });
     } catch (err) {
@@ -136,7 +154,7 @@ async function onCleanClick() {
     } finally {
         if (ui) {
             ui.button.dataset.busy = 'false';
-            ui.button.textContent = '✦ Clean';
+            ui.label.textContent = 'Clean';
         }
     }
 }
