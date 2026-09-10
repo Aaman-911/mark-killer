@@ -1,6 +1,6 @@
 {
   "name": "mark-killer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "description": "Chrome extension that removes the visible Gemini sparkle watermark from images and videos, locally.",

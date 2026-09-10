@@ -77,8 +77,25 @@ async function ensureOffscreen() {
 
 async function startExport(msg) {
     await ensureOffscreen();
-    await chrome.runtime.sendMessage({ type: 'offscreen-export', name: msg.name, settings: msg.settings });
-    return { ok: true };
+
+    // createDocument resolves before the document's module has run, so its
+    // message listener may not exist yet. Give it a few tries.
+    let lastError = null;
+    for (let attempt = 0; attempt < 20; attempt++) {
+        try {
+            const reply = await chrome.runtime.sendMessage({
+                type: 'offscreen-export',
+                name: msg.name,
+                settings: msg.settings,
+            });
+            if (reply?.ok) return { ok: true };
+            lastError = 'the exporter did not accept the job';
+        } catch (err) {
+            lastError = err.message;
+        }
+        await new Promise((r) => setTimeout(r, 150));
+    }
+    return { ok: false, error: lastError || 'the exporter never started' };
 }
 
 // The offscreen document cannot reach chrome.storage or chrome.downloads, so

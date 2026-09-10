@@ -228,7 +228,13 @@ export async function mountVideoView(container) {
                 name: state.name,
                 settings: state.settings,
             });
-            if (!reply?.ok) throw new Error(reply?.error || 'The export could not be started.');
+            if (reply === undefined) {
+                // Nothing answered: the background worker is not running the
+                // same build as this panel, or it failed to start.
+                throw new Error('The background worker did not answer. Reload the extension '
+                    + `on chrome://extensions (this panel is v${chrome.runtime.getManifest().version}).`);
+            }
+            if (!reply.ok) throw new Error(reply.error || 'The export could not be started.');
             el.progressText.textContent = 'Decoding…';
             el.stop.hidden = false;
         } catch (err) {

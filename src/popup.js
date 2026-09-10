@@ -37,6 +37,8 @@ function showHome() {
     home.hidden = false;
 }
 
+document.getElementById('build').textContent = `v${chrome.runtime.getManifest().version}`;
+
 videoButton.addEventListener('click', () => showVideo());
 backButton.addEventListener('click', showHome);
 
